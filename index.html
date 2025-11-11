@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LPG Cylinder Tracker (Secure Cloud)</title>
+  <title>LPG Cylinder Tracker (Firebase v10+)</title>
 
   <style>
     body {
@@ -78,29 +78,29 @@
 </head>
 <body>
 
-  <!-- Login / Register -->
+  <!-- 🔐 Login -->
   <div id="login-container" style="display:none;">
-    <h2>🔐 Login</h2>
+    <h2>Login</h2>
     <input type="email" id="loginEmail" placeholder="Email" required />
     <input type="password" id="loginPassword" placeholder="Password" required />
     <button id="loginBtn">Login</button>
     <p>Don't have an account? <a href="#" id="showRegister">Register</a></p>
   </div>
 
+  <!-- 🧾 Register -->
   <div id="register-container" style="display:none;">
-    <h2>🧾 Register</h2>
+    <h2>Register</h2>
     <input type="email" id="registerEmail" placeholder="Email" required />
     <input type="password" id="registerPassword" placeholder="Password" required />
     <button id="registerBtn">Create Account</button>
     <p>Already have an account? <a href="#" id="showLogin">Login</a></p>
   </div>
 
-  <!-- Main App -->
+  <!-- 🏠 Main App -->
   <div id="app" class="container" style="display:none;">
-    <h1>🏠 LPG Cylinder Tracker (Secure)</h1>
+    <h1>🏠 LPG Cylinder Tracker</h1>
     <button id="logoutBtn">Logout</button>
 
-    <!-- Add Customer -->
     <h2>➕ Add Customer</h2>
     <form id="customerForm">
       <input type="text" id="customerName" placeholder="Customer Name" required />
@@ -108,7 +108,6 @@
       <button type="submit">Add Customer</button>
     </form>
 
-    <!-- Add Entry -->
     <h2>📦 Add Cylinder Entry</h2>
     <form id="entryForm">
       <select id="selectCustomer" required></select>
@@ -120,7 +119,6 @@
       <button type="submit">Add Entry</button>
     </form>
 
-    <!-- View Entries -->
     <h2>📋 Customer Entries</h2>
     <div class="flex">
       <div><select id="filterCustomer"></select></div>
@@ -144,13 +142,13 @@
     </table>
   </div>
 
-  <!-- ✅ Firebase v10 Modular SDK -->
+  <!-- ✅ Firebase Modular SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
     import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
     import { getDatabase, ref, push, onValue, remove, get } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js";
 
-    // ✅ Your Firebase Config
+    // ✅ Firebase Config
     const firebaseConfig = {
       apiKey: "AIzaSyDmCAgezPq5nOgOJHZCPd8y8z9DTdKhtqQ",
       authDomain: "cylinder-tracker-84f18.firebaseapp.com",
@@ -162,7 +160,7 @@
       measurementId: "G-Y1VWV1KZNF"
     };
 
-    // ✅ Initialize Firebase
+    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
@@ -171,7 +169,7 @@
     const loginContainer = document.getElementById("login-container");
     const registerContainer = document.getElementById("register-container");
 
-    // 🔐 Auth State Listener
+    // 🔐 Auth State
     onAuthStateChanged(auth, (user) => {
       if (user) {
         loginContainer.style.display = "none";
@@ -185,7 +183,7 @@
       }
     });
 
-    // 🔑 Login & Register
+    // 🧾 Auth Handlers
     document.getElementById("loginBtn").addEventListener("click", async () => {
       const email = loginEmail.value;
       const password = loginPassword.value;
@@ -221,7 +219,7 @@
 
     document.getElementById("logoutBtn").addEventListener("click", () => signOut(auth));
 
-    // 🔄 Customer & Entry logic
+    // 🔄 Data Logic
     const customerForm = document.getElementById("customerForm");
     const entryForm = document.getElementById("entryForm");
     const selectCustomer = document.getElementById("selectCustomer");
