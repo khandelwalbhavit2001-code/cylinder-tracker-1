@@ -3,12 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cylinder Tracker</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <title>Cylinder Tracker (Secure Cloud)</title>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js"></script>
+
   <style>
     body {
       font-family: "Segoe UI", sans-serif;
-      background: #f4f6f8;
+      background: #f5f6fa;
       padding: 20px;
     }
     .container {
@@ -22,59 +27,85 @@
     h1 {
       text-align: center;
       color: #007bff;
-      margin-bottom: 30px;
-    }
-    h2 {
-      color: #333;
-      margin-top: 30px;
-    }
-    form, .filters {
-      margin-bottom: 20px;
     }
     input, select, textarea, button {
-      padding: 10px;
-      margin-top: 5px;
       width: 100%;
+      padding: 10px;
+      margin: 6px 0;
       border: 1px solid #ccc;
       border-radius: 6px;
     }
     button {
       background: #007bff;
       color: white;
+      font-weight: bold;
       cursor: pointer;
-      font-weight: 600;
     }
-    button:hover {
-      background: #0056b3;
-    }
+    button:hover { background: #0056b3; }
     table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 10px;
     }
     th, td {
-      padding: 10px;
       border: 1px solid #ddd;
+      padding: 10px;
       text-align: left;
     }
     th {
       background: #007bff;
       color: white;
     }
-    .flex {
-      display: flex;
-      gap: 10px;
+    .flex { display: flex; gap: 10px; }
+    .flex > div { flex: 1; }
+    .delete-btn {
+      background: red;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
     }
-    .flex > div {
-      flex: 1;
+    .delete-btn:hover { background: darkred; }
+    #login-container, #register-container {
+      max-width: 400px;
+      margin: 100px auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    #logoutBtn {
+      float: right;
+      background: #dc3545;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>🏠 LPG Cylinder Tracker</h1>
 
-    <!-- Add Customer Section -->
+  <!-- Login / Register -->
+  <div id="login-container" style="display:none;">
+    <h2>🔐 Login</h2>
+    <input type="email" id="loginEmail" placeholder="Email" required />
+    <input type="password" id="loginPassword" placeholder="Password" required />
+    <button id="loginBtn">Login</button>
+    <p>Don't have an account? <a href="#" id="showRegister">Register</a></p>
+  </div>
+
+  <div id="register-container" style="display:none;">
+    <h2>🧾 Register</h2>
+    <input type="email" id="registerEmail" placeholder="Email" required />
+    <input type="password" id="registerPassword" placeholder="Password" required />
+    <button id="registerBtn">Create Account</button>
+    <p>Already have an account? <a href="#" id="showLogin">Login</a></p>
+  </div>
+
+  <!-- Main App -->
+  <div id="app" class="container" style="display:none;">
+    <h1>🏠 LPG Cylinder Tracker (Secure)</h1>
+    <button id="logoutBtn">Logout</button>
+
+    <!-- Add Customer -->
     <h2>➕ Add Customer</h2>
     <form id="customerForm">
       <input type="text" id="customerName" placeholder="Customer Name" required />
@@ -82,41 +113,25 @@
       <button type="submit">Add Customer</button>
     </form>
 
-    <!-- Add Entry Section -->
-    <h2>📦 Add Cylinder Transaction</h2>
+    <!-- Add Entry -->
+    <h2>📦 Add Cylinder Entry</h2>
     <form id="entryForm">
       <select id="selectCustomer" required></select>
       <div class="flex">
         <div><input type="date" id="entryDate" required /></div>
-        <div>
-          <select id="entryType" required>
-            <option value="Taken">Taken</option>
-            <option value="Given">Given</option>
-          </select>
-        </div>
-        <div><input type="number" id="entryCount" min="1" placeholder="Cylinders Count" required /></div>
+        <div><input type="number" id="takenCount" placeholder="Taken Cylinders" min="0" /></div>
+        <div><input type="number" id="givenCount" placeholder="Given Cylinders" min="0" /></div>
       </div>
       <button type="submit">Add Entry</button>
     </form>
 
-    <!-- Filter & Export Section -->
-    <h2>🔍 View & Export Transactions</h2>
-    <div class="filters flex">
-      <div>
-        <label>Customer:</label>
-        <select id="filterCustomer"></select>
-      </div>
-      <div>
-        <label>From Date:</label>
-        <input type="date" id="filterFrom" />
-      </div>
-      <div>
-        <label>To Date:</label>
-        <input type="date" id="filterTo" />
-      </div>
-      <div style="align-self: flex-end;">
-        <button id="applyFilters">Apply Filters</button>
-      </div>
+    <!-- View Entries -->
+    <h2>📋 Customer Entries</h2>
+    <div class="flex">
+      <div><select id="filterCustomer"></select></div>
+      <div><input type="date" id="filterFrom" /></div>
+      <div><input type="date" id="filterTo" /></div>
+      <div><button id="applyFilter">Apply</button></div>
     </div>
 
     <table id="entriesTable">
@@ -125,123 +140,160 @@
           <th>Customer</th>
           <th>Address</th>
           <th>Date</th>
-          <th>Type</th>
-          <th>Count</th>
+          <th>Taken</th>
+          <th>Given</th>
+          <th>Action</th>
         </tr>
       </thead>
       <tbody></tbody>
     </table>
-
-    <button id="exportExcel" style="margin-top: 15px;">⬇️ Export to Excel</button>
   </div>
 
   <script>
+    // ✅ Your Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDmCAgezPq5nOgOJHZCPd8y8z9DTdKhtqQ",
+      authDomain: "cylinder-tracker-84f18.firebaseapp.com",
+      databaseURL: "https://cylinder-tracker-84f18-default-rtdb.firebaseio.com",
+      projectId: "cylinder-tracker-84f18",
+      storageBucket: "cylinder-tracker-84f18.firebasestorage.app",
+      messagingSenderId: "504628891861",
+      appId: "1:504628891861:web:498eab7f2b1b0c9683525c",
+      measurementId: "G-Y1VWV1KZNF"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
+
+    const appContainer = document.getElementById("app");
+    const loginContainer = document.getElementById("login-container");
+    const registerContainer = document.getElementById("register-container");
+
+    // 🔐 Auth State Listener
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        loginContainer.style.display = "none";
+        registerContainer.style.display = "none";
+        appContainer.style.display = "block";
+        loadCustomers();
+        loadEntries();
+      } else {
+        appContainer.style.display = "none";
+        loginContainer.style.display = "block";
+      }
+    });
+
+    // 🔑 Login & Register
+    document.getElementById("loginBtn").addEventListener("click", async () => {
+      const email = loginEmail.value;
+      const password = loginPassword.value;
+      try {
+        await auth.signInWithEmailAndPassword(email, password);
+      } catch (err) {
+        alert("Login failed: " + err.message);
+      }
+    });
+
+    document.getElementById("registerBtn").addEventListener("click", async () => {
+      const email = registerEmail.value;
+      const password = registerPassword.value;
+      try {
+        await auth.createUserWithEmailAndPassword(email, password);
+        alert("✅ Account created! Please login.");
+        showLoginForm();
+      } catch (err) {
+        alert("Registration failed: " + err.message);
+      }
+    });
+
+    document.getElementById("showRegister").addEventListener("click", showRegisterForm);
+    document.getElementById("showLogin").addEventListener("click", showLoginForm);
+    function showRegisterForm() {
+      loginContainer.style.display = "none";
+      registerContainer.style.display = "block";
+    }
+    function showLoginForm() {
+      registerContainer.style.display = "none";
+      loginContainer.style.display = "block";
+    }
+
+    document.getElementById("logoutBtn").addEventListener("click", () => auth.signOut());
+
+    // 🔄 Customer & Entry logic
     const customerForm = document.getElementById("customerForm");
     const entryForm = document.getElementById("entryForm");
     const selectCustomer = document.getElementById("selectCustomer");
     const filterCustomer = document.getElementById("filterCustomer");
-    const entriesTable = document.getElementById("entriesTable").querySelector("tbody");
+    const entriesTable = document.querySelector("#entriesTable tbody");
 
-    const customers = JSON.parse(localStorage.getItem("customers")) || [];
-    const entries = JSON.parse(localStorage.getItem("entries")) || [];
-
-    // Update dropdowns
-    function updateCustomerDropdowns() {
-      [selectCustomer, filterCustomer].forEach(drop => {
-        drop.innerHTML = "<option value='all'>All Customers</option>";
-        customers.forEach((c, i) => {
-          const opt = new Option(c.name, i);
-          drop.add(opt);
-        });
+    function loadCustomers() {
+      db.ref("customers").on("value", (snapshot) => {
+        const customers = snapshot.val() || {};
+        selectCustomer.innerHTML = "";
+        filterCustomer.innerHTML = "<option value='all'>All Customers</option>";
+        for (const id in customers) {
+          const c = customers[id];
+          const opt1 = new Option(c.name, id);
+          const opt2 = new Option(c.name, id);
+          selectCustomer.add(opt1);
+          filterCustomer.add(opt2);
+        }
       });
-    }
-
-    function saveData() {
-      localStorage.setItem("customers", JSON.stringify(customers));
-      localStorage.setItem("entries", JSON.stringify(entries));
     }
 
     customerForm.addEventListener("submit", (e) => {
       e.preventDefault();
-      const name = document.getElementById("customerName").value.trim();
-      const address = document.getElementById("customerAddress").value.trim();
-      if (name && address) {
-        customers.push({ name, address });
-        saveData();
-        updateCustomerDropdowns();
-        customerForm.reset();
-        alert("✅ Customer added successfully!");
-      }
+      const name = customerName.value.trim();
+      const address = customerAddress.value.trim();
+      db.ref("customers").push({ name, address });
+      customerForm.reset();
     });
 
     entryForm.addEventListener("submit", (e) => {
       e.preventDefault();
-      const custIdx = selectCustomer.value;
-      const date = document.getElementById("entryDate").value;
-      const type = document.getElementById("entryType").value;
-      const count = parseInt(document.getElementById("entryCount").value);
-      if (custIdx !== "" && date && count > 0) {
-        entries.push({ custIdx, date, type, count });
-        saveData();
-        entryForm.reset();
-        showEntries();
-        alert("✅ Entry added successfully!");
-      }
+      const custId = selectCustomer.value;
+      const date = entryDate.value;
+      const taken = parseInt(takenCount.value) || 0;
+      const given = parseInt(givenCount.value) || 0;
+      db.ref("entries").push({ custId, date, taken, given });
+      entryForm.reset();
     });
 
-    document.getElementById("applyFilters").addEventListener("click", showEntries);
-    document.getElementById("exportExcel").addEventListener("click", exportToExcel);
+    function loadEntries() {
+      db.ref("entries").on("value", async (snapshot) => {
+        const entries = snapshot.val() || {};
+        const customers = (await db.ref("customers").get()).val() || {};
+        renderEntries(entries, customers);
+      });
+    }
 
-    function showEntries() {
-      const custFilter = filterCustomer.value;
-      const from = document.getElementById("filterFrom").value;
-      const to = document.getElementById("filterTo").value;
-
+    function renderEntries(entries, customers) {
       entriesTable.innerHTML = "";
-      let filtered = entries;
-
-      if (custFilter !== "all") {
-        filtered = filtered.filter(e => e.custIdx === custFilter);
-      }
-
-      if (from) filtered = filtered.filter(e => e.date >= from);
-      if (to) filtered = filtered.filter(e => e.date <= to);
-
-      filtered.forEach(e => {
-        const c = customers[e.custIdx];
+      const from = filterFrom.value;
+      const to = filterTo.value;
+      const custFilter = filterCustomer.value;
+      for (const id in entries) {
+        const e = entries[id];
+        if (custFilter !== "all" && e.custId !== custFilter) continue;
+        if (from && e.date < from) continue;
+        if (to && e.date > to) continue;
+        const c = customers[e.custId] || { name: "Unknown", address: "" };
         const row = entriesTable.insertRow();
         row.insertCell(0).textContent = c.name;
         row.insertCell(1).textContent = c.address;
         row.insertCell(2).textContent = e.date;
-        row.insertCell(3).textContent = e.type;
-        row.insertCell(4).textContent = e.count;
-      });
+        row.insertCell(3).textContent = e.taken;
+        row.insertCell(4).textContent = e.given;
+        const del = document.createElement("button");
+        del.textContent = "Delete";
+        del.className = "delete-btn";
+        del.onclick = () => db.ref("entries/" + id).remove();
+        row.insertCell(5).appendChild(del);
+      }
     }
 
-    function exportToExcel() {
-      const rows = [["Customer", "Address", "Date", "Type", "Count"]];
-      const custFilter = filterCustomer.value;
-      const from = document.getElementById("filterFrom").value;
-      const to = document.getElementById("filterTo").value;
-
-      let filtered = entries;
-      if (custFilter !== "all") filtered = filtered.filter(e => e.custIdx === custFilter);
-      if (from) filtered = filtered.filter(e => e.date >= from);
-      if (to) filtered = filtered.filter(e => e.date <= to);
-
-      filtered.forEach(e => {
-        const c = customers[e.custIdx];
-        rows.push([c.name, c.address, e.date, e.type, e.count]);
-      });
-
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.aoa_to_sheet(rows);
-      XLSX.utils.book_append_sheet(wb, ws, "Transactions");
-      XLSX.writeFile(wb, "cylinder_transactions.xlsx");
-    }
-
-    updateCustomerDropdowns();
-    showEntries();
+    document.getElementById("applyFilter").addEventListener("click", loadEntries);
   </script>
 </body>
 </html>
