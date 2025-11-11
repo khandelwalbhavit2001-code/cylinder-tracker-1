@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cylinder Tracker</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: #f4f6f8;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #007bff;
+      margin-bottom: 30px;
+    }
+    h2 {
+      color: #333;
+      margin-top: 30px;
+    }
+    form, .filters {
+      margin-bottom: 20px;
+    }
+    input, select, textarea, button {
+      padding: 10px;
+      margin-top: 5px;
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ddd;
+      text-align: left;
+    }
+    th {
+      background: #007bff;
+      color: white;
+    }
+    .flex {
+      display: flex;
+      gap: 10px;
+    }
+    .flex > div {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏠 LPG Cylinder Tracker</h1>
+
+    <!-- Add Customer Section -->
+    <h2>➕ Add Customer</h2>
+    <form id="customerForm">
+      <input type="text" id="customerName" placeholder="Customer Name" required />
+      <textarea id="customerAddress" placeholder="Address" required></textarea>
+      <button type="submit">Add Customer</button>
+    </form>
+
+    <!-- Add Entry Section -->
+    <h2>📦 Add Cylinder Transaction</h2>
+    <form id="entryForm">
+      <select id="selectCustomer" required></select>
+      <div class="flex">
+        <div><input type="date" id="entryDate" required /></div>
+        <div>
+          <select id="entryType" required>
+            <option value="Taken">Taken</option>
+            <option value="Given">Given</option>
+          </select>
+        </div>
+        <div><input type="number" id="entryCount" min="1" placeholder="Cylinders Count" required /></div>
+      </div>
+      <button type="submit">Add Entry</button>
+    </form>
+
+    <!-- Filter & Export Section -->
+    <h2>🔍 View & Export Transactions</h2>
+    <div class="filters flex">
+      <div>
+        <label>Customer:</label>
+        <select id="filterCustomer"></select>
+      </div>
+      <div>
+        <label>From Date:</label>
+        <input type="date" id="filterFrom" />
+      </div>
+      <div>
+        <label>To Date:</label>
+        <input type="date" id="filterTo" />
+      </div>
+      <div style="align-self: flex-end;">
+        <button id="applyFilters">Apply Filters</button>
+      </div>
+    </div>
+
+    <table id="entriesTable">
+      <thead>
+        <tr>
+          <th>Customer</th>
+          <th>Address</th>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Count</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <button id="exportExcel" style="margin-top: 15px;">⬇️ Export to Excel</button>
+  </div>
+
+  <script>
+    const customerForm = document.getElementById("customerForm");
+    const entryForm = document.getElementById("entryForm");
+    const selectCustomer = document.getElementById("selectCustomer");
+    const filterCustomer = document.getElementById("filterCustomer");
+    const entriesTable = document.getElementById("entriesTable").querySelector("tbody");
+
+    const customers = JSON.parse(localStorage.getItem("customers")) || [];
+    const entries = JSON.parse(localStorage.getItem("entries")) || [];
+
+    // Update dropdowns
+    function updateCustomerDropdowns() {
+      [selectCustomer, filterCustomer].forEach(drop => {
+        drop.innerHTML = "<option value='all'>All Customers</option>";
+        customers.forEach((c, i) => {
+          const opt = new Option(c.name, i);
+          drop.add(opt);
+        });
+      });
+    }
+
+    function saveData() {
+      localStorage.setItem("customers", JSON.stringify(customers));
+      localStorage.setItem("entries", JSON.stringify(entries));
+    }
+
+    customerForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = document.getElementById("customerName").value.trim();
+      const address = document.getElementById("customerAddress").value.trim();
+      if (name && address) {
+        customers.push({ name, address });
+        saveData();
+        updateCustomerDropdowns();
+        customerForm.reset();
+        alert("✅ Customer added successfully!");
+      }
+    });
+
+    entryForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const custIdx = selectCustomer.value;
+      const date = document.getElementById("entryDate").value;
+      const type = document.getElementById("entryType").value;
+      const count = parseInt(document.getElementById("entryCount").value);
+      if (custIdx !== "" && date && count > 0) {
+        entries.push({ custIdx, date, type, count });
+        saveData();
+        entryForm.reset();
+        showEntries();
+        alert("✅ Entry added successfully!");
+      }
+    });
+
+    document.getElementById("applyFilters").addEventListener("click", showEntries);
+    document.getElementById("exportExcel").addEventListener("click", exportToExcel);
+
+    function showEntries() {
+      const custFilter = filterCustomer.value;
+      const from = document.getElementById("filterFrom").value;
+      const to = document.getElementById("filterTo").value;
+
+      entriesTable.innerHTML = "";
+      let filtered = entries;
+
+      if (custFilter !== "all") {
+        filtered = filtered.filter(e => e.custIdx === custFilter);
+      }
+
+      if (from) filtered = filtered.filter(e => e.date >= from);
+      if (to) filtered = filtered.filter(e => e.date <= to);
+
+      filtered.forEach(e => {
+        const c = customers[e.custIdx];
+        const row = entriesTable.insertRow();
+        row.insertCell(0).textContent = c.name;
+        row.insertCell(1).textContent = c.address;
+        row.insertCell(2).textContent = e.date;
+        row.insertCell(3).textContent = e.type;
+        row.insertCell(4).textContent = e.count;
+      });
+    }
+
+    function exportToExcel() {
+      const rows = [["Customer", "Address", "Date", "Type", "Count"]];
+      const custFilter = filterCustomer.value;
+      const from = document.getElementById("filterFrom").value;
+      const to = document.getElementById("filterTo").value;
+
+      let filtered = entries;
+      if (custFilter !== "all") filtered = filtered.filter(e => e.custIdx === custFilter);
+      if (from) filtered = filtered.filter(e => e.date >= from);
+      if (to) filtered = filtered.filter(e => e.date <= to);
+
+      filtered.forEach(e => {
+        const c = customers[e.custIdx];
+        rows.push([c.name, c.address, e.date, e.type, e.count]);
+      });
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, ws, "Transactions");
+      XLSX.writeFile(wb, "cylinder_transactions.xlsx");
+    }
+
+    updateCustomerDropdowns();
+    showEntries();
+  </script>
+</body>
+</html>
